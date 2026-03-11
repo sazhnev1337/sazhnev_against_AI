@@ -8,23 +8,20 @@
 ;   D = acc   (адрес аккумулятора float16, 2 байта)
 ;
 ; FP-регистры:
-;   FQA — текущий элемент vec_a  (OFP8 E4M3)
-;   FQE — текущий элемент vec_b  (OFP8 E4M3, phys=1)
+;   FQE — текущий элемент vec_a  (OFP8 E4M3)
+;   FQF — текущий элемент vec_b  (OFP8 E4M3, phys=1)
 ;   FHA — acc (float16, phys=0 low half)
 ;   FHB — промежуточное произведение float16 (phys=0 high half)
-;   FHC — конвертированный a_i как float16 (phys=1 low half)
-;   FHD — конвертированный b_i как float16 (phys=1 high half)
 ;
 ; Алгоритм (за одну итерацию):
-;   1. Загружаем a[i] → FQA (OFP8)
-;   2. Загружаем b[i] → FQE (OFP8)
-;   3. FCVT.H.O3 FHC, FQA   ; a_i → float16
-;   4. FCVT.H.O3 FHD, FQE   ; b_i → float16
-;   5. FMOV.H FHB, FHC       ; FHB = a_i
-;   6. FMUL.H FHB, FHD       ; FHB = a_i * b_i
-;   7. FADD.H FHA, FHB       ; FHA += a_i * b_i
-;   8. Инкремент A, B; декремент C; если C != 0 — повтор
-;   9. Сохранить FHA → [D]
+;   1. Загружаем a[i] → FQE (OFP8)
+;   2. Загружаем b[i] → FQF (OFP8)
+;   3. FCVT.H.O3 FHD, FQE   ; a_i → float16
+;   4. FCVT.H.O3 FHB, FQF   ; b_i → float16
+;   5. FMUL.H FHB, FHD       ; FHB = a_i * b_i
+;   6. FADD.H FHA, FHB       ; FHA += a_i * b_i
+;   7. Инкремент A, B; декремент C; если C != 0 — повтор
+;   8. Сохранить FHA → [D]
 
 JMP start
 
@@ -45,19 +42,16 @@ start:
 
 .loop:
     ; Загружаем a[i] в FQA (OFP8 E4M3, 1 байт)
-    FMOV.O3 FQA, [A]
+    FMOV.O3 FQE, [A]
 
     ; Загружаем b[i] в FQE (OFP8 E4M3, на phys=1)
-    FMOV.O3 FQE, [B]
+    FMOV.O3 FQF, [B]
 
     ; Конвертируем a[i]: OFP8 → float16
-    FCVT.H.O3 FHC, FQA
-
-    ; Конвертируем b[i]: OFP8 → float16
     FCVT.H.O3 FHD, FQE
 
-    ; FHB = a[i]
-    FMOV.H FHB, FHC
+    ; Конвертируем b[i]: OFP8 → float16
+    FCVT.H.O3 FHB, FQF
 
     ; FHB = a[i] * b[i]
     FMUL.H FHB, FHD
